@@ -1,0 +1,68 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Eugene Lee"
+date: "19 July 2015"
+output: html_document
+---
+```{r setting,echo=FALSE}
+knitr::opts_chunk$set(fig.width=8, fig.height=4, fig.path='Figs/',
+                       warning=FALSE, message=FALSE)
+```
+
+#Abstract
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity. In a weight lifting experiment,  accelerometers on the belt, forearm, arm, and dumbell were placed on 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information on the data is available from the website [here](http://groupware.les.inf.puc-rio.br/har). The objective of this report is to analyse the data and predict the manner in which they exercise using machine learning. Gradient Boosting is used to determine a model for predicting the classe variable in the dataset.
+
+#Data
+The following R code loads the data into R:
+```{r load_training, echo=TRUE}
+if (!file.exists("pml-training.csv")) {
+  temp <- tempfile()
+  download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",temp)
+  training <- read.csv(temp, header = T, stringsAsFactors = T,na.strings=c('NA',""))
+  unlink(temp)
+  } else {
+  training <- read.csv("pml-training.csv", header = T, stringsAsFactors = T, na.strings=c('NA',""))
+}
+```
+
+```{r load_testing, echo=FALSE}
+if (!file.exists("pml-testing.csv")) {
+  temp1 <- tempfile()
+  download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",temp1)
+  testing <- read.csv(temp1, header = T, stringsAsFactors = T, na.strings=c('NA',""))
+  unlink(temp1)
+  } else {
+  testing <- read.csv("pml-testing.csv", header = T, stringsAsFactors = T, na.strings=c('NA',""))
+}
+```
+
+#Features
+Columns with NA and blank values are first removed. The first 7 columns are also removed as we will focus only on the quantitative values from the sensors.
+```{r remove_na, echo=TRUE}
+data<-training[, apply(training, 2, function(x) !any(is.na(x)))]
+data<-data[,-c(1,2,3,4,5,6,7)]
+```
+
+#Algorithm
+The data set is split into 60% and 40% for training and cross-validation respectively. 
+```{r split_data, echo=TRUE}
+library(caret);set.seed(123456)
+inTrain<-createDataPartition(y=data$classe,p=0.6,list=FALSE)
+train<-data[inTrain,]
+test<-data[-inTrain,]
+``` 
+
+##Gradient Boosting
+As described in the lecture videos, Random Forests and Boosting are the top 2 performing algorithms. However, as there are too many features, we will not use Random Forests due to computing power constraints. We will apply gradient boosting with caret defaults to the training set: 
+```{r gbm, cache=TRUE}
+set.seed(123456)
+modFit_GBM<-train(classe~.,data=train,method='gbm',verbose=FALSE)
+print(modFit_GBM$finalModel)
+```
+
+##Evaluation of Gradient Boosting
+Based on the confusion matrix below, the estimated out-of-sample error is $1-0.9634=0.0366$.
+```{r test, echo=TRUE}
+pred_GBM<-predict(modFit_GBM,newdata=test)
+confusionMatrix(pred_GBM, test$classe)
+```
